@@ -1,0 +1,21 @@
+# Данные — слишком большие для git
+data/*.bin
+data/*.npy
+
+# Чекпоинты модели — большие, пересоздаются
+checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Временные файлы
+*.tmp
+*.log
+nohup.out
