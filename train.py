@@ -78,21 +78,27 @@ def make_train_step(model, optimizer, grad_accum=1):
             return loss, norm
         return mx.compile(_step, inputs=state, outputs=state)
 
-    # Gradient accumulation: N микро-шагов, один update
-    # КРИТИЧНО: mx.eval(grads) после каждого шага — иначе lazy граф
-    # накапливается как a+b+c+... и взрывает память (видели 28GB!)
+    # Gradient accumulation с компилированным микро-шагом.
+    # Каждый микро-шаг компилируется отдельно (inputs=model.state).
+    # Веса не меняются между микро-шагами → compile видит их как константы.
+    # mx.eval(grads) после каждого шага обрывает lazy граф (иначе 28GB!).
+    micro_state = [model.state]
+
+    def _micro_fn(x, y):
+        return mx.value_and_grad(loss_fn)(model, x, y)
+
+    compiled_micro = mx.compile(_micro_fn, inputs=micro_state)
+
     def _accum_step(xs, ys):
-        """xs, ys — списки из grad_accum микро-батчей"""
-        # Первый микро-шаг
-        total_loss, total_grads = mx.value_and_grad(loss_fn)(model, xs[0], ys[0])
-        mx.eval(total_loss, total_grads)  # ← материализуем сразу
+        total_loss, total_grads = compiled_micro(xs[0], ys[0])
+        mx.eval(total_loss, total_grads)
 
         for i in range(1, grad_accum):
-            loss_i, grads_i = mx.value_and_grad(loss_fn)(model, xs[i], ys[i])
-            mx.eval(loss_i, grads_i)      # ← материализуем до сложения
+            loss_i, grads_i = compiled_micro(xs[i], ys[i])
+            mx.eval(loss_i, grads_i)
             total_loss  = total_loss + loss_i
             total_grads = tree_map(lambda a, b: a + b, total_grads, grads_i)
-            mx.eval(total_grads)          # ← материализуем накопленное
+            mx.eval(total_grads)
 
         total_grads = tree_map(lambda g: g / grad_accum, total_grads)
         total_loss  = total_loss / grad_accum

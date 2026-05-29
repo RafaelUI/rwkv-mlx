@@ -32,11 +32,11 @@ class RWKVConfig:
 CONFIGS = {
     # ~36M параметров — старт, быстрая проверка
     "debug": RWKVConfig(n_layer=6,  n_embd=384,  vocab_size=32000,
-                        ctx_len=4096, batch_size=3),
+                        ctx_len=1024, batch_size=4),
 
     # ~100M параметров — основная цель
     "100M":  RWKVConfig(n_layer=12, n_embd=768,  vocab_size=32000,
-                        ctx_len=4096, batch_size=3),
+                        ctx_len=1024, batch_size=4),
 
     # ~300M параметров
     "300M":  RWKVConfig(n_layer=24, n_embd=1024, vocab_size=32000,
