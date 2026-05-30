@@ -179,9 +179,68 @@ optimizer = optim.AdamW(lr=..., eps=1e-18, betas=(0.9, 0.95))
 
 ## Следующие шаги (TODO)
 
-- [ ] LoRA файнтюн через наш Metal kernel (GooseOne 2.9B)
+- [x] LoRA/QLoRA файнтюн официальных World моделей (1.5B проверена)
+- [ ] Инструкционные данные перефразирования (World-токенизация)
+- [ ] GooseOne 2.9B (после чистки диска)
 - [ ] 8-bit AdamW (4× меньше optimizer state → больший batch для 138.9M)
 - [ ] Публикация Metal WKV7 kernel как отдельного пакета
+
+## Файнтюн официальных моделей RWKV-7 World (LoRA / QLoRA)
+
+Помимо обучения с нуля, репозиторий поддерживает LoRA/QLoRA-файнтюн готовых
+официальных весов RWKV-7 World на Apple Silicon 16 ГБ.
+
+### Загрузка официальных весов
+
+`model/rwkv7_x070.py` — архитектура, точно соответствующая официальному x070
+(под веса `BlinkDL/rwkv-7-world`). `convert_rwkv_pth.py` — **torch-free** конвертер
+`.pth` (torch не требуется, читает zip+pickle напрямую в MLX).
+
+```bash
+# Скачать (пример: World 1.5B)
+python -c "from huggingface_hub import hf_hub_download; \
+  hf_hub_download('BlinkDL/rwkv-7-world','RWKV-x070-World-1.5B-v3-20250127-ctx4096.pth',local_dir='weights')"
+
+# Конвертировать -> weights/rwkv7_1.5B_x070.safetensors
+python convert_rwkv_pth.py weights/RWKV-x070-World-1.5B-v3-20250127-ctx4096.pth load
+
+# Проверить (loss на реальном тексте ~3, не ~11)
+python validate_conversion.py
+```
+
+Проверено: World 1.5B загружается, **loss 3.08** на русском тексте (random=11.09).
+
+### LoRA / QLoRA через наш Metal kernel
+
+`model/lora.py` — адаптеры на `tmix.{r,k,v,o}_proj`, градиент течёт через WKV backward kernel.
+
+```python
+from model.lora import add_lora
+model, info = add_lora(model, rank=16, alpha=16.0,
+                       quantize_base=4,        # QLoRA: 4-бит замороженная база
+                       layers=range(12, 24))   # адаптеры только на верхние слои
+```
+
+**Провалидированный рецепт (16 ГБ):**
+- forward через `mlx.nn.utils.checkpoint` (НЕ `mx.checkpoint` — тот теряет градиент адаптеров)
+- `nn.value_and_grad` (НЕ `mx.value_and_grad` — игнорирует `freeze()`)
+- БЕЗ `mx.compile` (на больших моделях замедляет ~5×)
+- `mx.set_cache_limit(int(1.5e9))` против свопа
+- QLoRA: квантовать только большие матрицы (`cmix/head/emb` + цели), low-rank оставлять bf16
+- предобученная база: `lr~1e-4, alpha=16` (агрессивный lr разносит модель)
+
+**Капстоун** (World 1.5B, QLoRA 4-бит, верхние 12 слоёв): loss 3.02 → 0.006,
+peak 4.40 ГБ, 250 tok/s.
+
+| LoRA 1.5B | tok/s | peak |
+|-----------|-------|------|
+| все 24 слоя | 168 | 4.07 ГБ |
+| верхние 12 | 250 | 3.40 ГБ |
+| верхние 6 | 337 | 3.18 ГБ |
+
+> Токенайзеры: from-scratch трек использует кастомный 32k RU (`tokenizer/`),
+> официальные World-модели — World-токенайзер 65536 (`model/world_tokenizer.py`).
+> Они НЕ взаимозаменяемы.
 
 ## Лицензия
 

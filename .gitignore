@@ -19,3 +19,11 @@ __pycache__/
 *.tmp
 *.log
 nohup.out
+
+# Большие веса и корпуса (не в git)
+cleaned.txt
+weights/
+*.pth
+*.safetensors
+*.bak
+tokenizer/sample.txt
