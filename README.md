@@ -1,4 +1,4 @@
-# RWKV-7 Pretraining on Apple Silicon (MLX) (BAK, lets go rwkv-metal)
+# RWKV-7 Pretraining on Apple Silicon (MLX) (BAK, lets go [rwkv-metal](https://github.com/RafaelUI/rwkv-metal))
 
 Полный стек предобучения RWKV-7 "Goose" с нуля на устройствах Apple Silicon через MLX.
 Включает кастомный Metal backward kernel, достигающий **7.8× ускорения** vs Python einsum.
@@ -250,4 +250,3 @@ Apache 2.0
 
 - [RWKV-LM](https://github.com/BlinkDL/RWKV-LM) — оригинальный репозиторий
 - [mlx-lm](https://github.com/ml-explore/mlx-lm) — inference RWKV-7 через MLX (PR #580)
-- [maderix/ANE](https://github.com/maderix/ANE) — Apple Neural Engine private API
