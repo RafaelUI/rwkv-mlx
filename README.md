@@ -1,4 +1,4 @@
-# RWKV-7 Pretraining on Apple Silicon (MLX)
+# RWKV-7 Pretraining on Apple Silicon (MLX) (BAK, lets go rwkv-metal)
 
 Полный стек предобучения RWKV-7 "Goose" с нуля на устройствах Apple Silicon через MLX.
 Включает кастомный Metal backward kernel, достигающий **7.8× ускорения** vs Python einsum.
